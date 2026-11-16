@@ -7,6 +7,7 @@ import android.icu.text.CaseMap
 import android.os.Build
 import android.os.Bundle
 import android.os.storage.StorageVolume
+import android.util.Log
 import android.view.ContextMenu
 import android.view.Menu
 import android.view.MenuItem
@@ -61,8 +62,29 @@ import com.example.cyberpunkCalendar.ui.theme.CyberpunkJournalCalendarTheme
 import com.example.cyberpunkCalendar.ui.theme.FillColor
 import com.example.cyberpunkCalendar.ui.theme.Typography
 import com.example.cyberpunkCalendar.ui.theme.YellowNormal
+import com.google.api.client.http.HttpHeaders
+import com.google.api.client.http.HttpRequestInitializer
+import com.google.api.client.http.HttpTransport
+import com.google.api.client.json.JsonFactory
+import com.google.api.services.calendar.Calendar
 import org.intellij.lang.annotations.JdkConstants
+import java.lang.reflect.Array
+import java.time.LocalDate
 import java.time.LocalTime
+
+class TokenHttpRequestInitializer(private val accessToken: String) : HttpRequestInitializer {
+    override fun initialize(request: com.google.api.client.http.HttpRequest) {
+        val headers = HttpHeaders()
+        headers.set("Authorization", "Bearer $accessToken")
+        request.setHeaders(headers)
+    }
+}
+
+fun getCalendarService(accessToken: String, transport: HttpTransport, jsonFactory: JsonFactory): Calendar {
+    return Calendar.Builder(transport, jsonFactory, TokenHttpRequestInitializer(accessToken))
+        .setApplicationName("Your Android App")
+        .build()
+}
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -70,7 +92,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            FileSave()
+            if(GetSavedDate() != LocalDate.now().toString())
+            {
+                FileSave()
+                Log.d("testprint", "Saved Date changed")
+            }
             CyberpunkJournalCalendarTheme {
                 Box(modifier = Modifier
                     .fillMaxSize()
@@ -87,20 +113,20 @@ class MainActivity : ComponentActivity() {
                         }
                         val asd = temp.toString().split("\n")
                         for (i in asd){
-                            if (',' in i){
+                            if ('`' in i){
                             var name = ""
                             var desc = ""
                             for (a in i){
-                                if (a != ',') name += a
+                                if (a != '`') name += a
                                 else break
                             }
-                            desc = i.substringAfter("$name,")
+                            desc = i.substringAfter("$name`")
                             MissionAdd(name = name, description = desc, modifier = Modifier
                                 .fillMaxWidth()
                                 .background(Color.Transparent)
                                 .padding(15.dp, 10.dp))
                             }
-                          }
+                        }
                     }
                 }
             }
@@ -110,16 +136,22 @@ class MainActivity : ComponentActivity() {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun FileSave(database : String = "test1,test1 description,${LocalTime.now()}\ntest2,test 2 desc,${LocalTime.now()}\n${LocalDateTime.now()}"){
+fun FileSave(database : kotlin.Array<String> = arrayOf("test1`test1 desc", "test2`test2 description",
+    LocalDate.now().toString())){
     val filename = "test_database.txt"
     val fos : FileOutputStream = LocalContext.current.openFileOutput(filename, Context.MODE_PRIVATE)
-    fos.write(database.toByteArray())
+    var writedata = ""
+    for (i in database){
+        writedata += i
+        if (i != database[database.size - 1]) writedata += "\n"
+    }
+    fos.write(writedata.toByteArray())
     fos.flush()
     fos.close()
 }
 
 @Composable
-fun FileLoad(){
+fun FileLoad(): String {
     val filename = "test_database.txt"
     val fin: FileInputStream = LocalContext.current.openFileInput(filename)
     var a: Int
@@ -127,6 +159,21 @@ fun FileLoad(){
     while (fin.read().also { a = it } != -1) {
         temp.append(a.toChar())
     }
+    return temp.toString()
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun GetSavedDate(): String{
+    val filename = "test_database.txt"
+    val fin: FileInputStream = LocalContext.current.openFileInput(filename)
+    var a: Int
+    val temp = StringBuilder()
+    while (fin.read().also { a = it } != -1) {
+        temp.append(a.toChar())
+    }
+    val asd = temp.toString().split("\n")
+    return asd[asd.size - 1]
 }
 
 @Composable
