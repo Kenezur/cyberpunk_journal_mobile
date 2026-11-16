@@ -2,13 +2,18 @@ package com.example.cyberpunkCalendar
 
 import android.R
 import android.annotation.SuppressLint
+import android.content.Context
+import android.icu.text.CaseMap
+import android.os.Build
 import android.os.Bundle
+import android.os.storage.StorageVolume
 import android.view.ContextMenu
 import android.view.Menu
 import android.view.MenuItem
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,6 +49,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.res.ResourcesCompat
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.File
+import java.io.InputStream
+import java.time.LocalDateTime
 import com.example.cyberpunkCalendar.ui.theme.BackgroundGradient
 import com.example.cyberpunkCalendar.ui.theme.BorderColor
 import com.example.cyberpunkCalendar.ui.theme.CyberpunkJournalCalendarTheme
@@ -51,17 +62,45 @@ import com.example.cyberpunkCalendar.ui.theme.FillColor
 import com.example.cyberpunkCalendar.ui.theme.Typography
 import com.example.cyberpunkCalendar.ui.theme.YellowNormal
 import org.intellij.lang.annotations.JdkConstants
+import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { BackgroundGradient
+        setContent {
+            FileSave()
             CyberpunkJournalCalendarTheme {
-                Box(modifier = Modifier.fillMaxSize().background(BackgroundGradient).padding(vertical = 20.dp).verticalScroll(rememberScrollState()))
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .background(BackgroundGradient)
+                    .padding(vertical = 20.dp)
+                    .verticalScroll(rememberScrollState()))
                 {
                     Column () {
-                        for (i in 1..20) MissionAdd(modifier = Modifier.fillMaxWidth().background(Color.Transparent).padding(15.dp, 10.dp))
+                        val fin: FileInputStream = LocalContext.current.openFileInput("test_database.txt")
+                        var a: Int
+                        val temp = StringBuilder()
+                        while (fin.read().also { a = it } != -1) {
+                            temp.append(a.toChar())
+                        }
+                        val asd = temp.toString().split("\n")
+                        for (i in asd){
+                            if (',' in i){
+                            var name = ""
+                            var desc = ""
+                            for (a in i){
+                                if (a != ',') name += a
+                                else break
+                            }
+                            desc = i.substringAfter("$name,")
+                            MissionAdd(name = name, description = desc, modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Transparent)
+                                .padding(15.dp, 10.dp))
+                            }
+                          }
                     }
                 }
             }
@@ -69,11 +108,32 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun FileSave(database : String = "test1,test1 description,${LocalTime.now()}\ntest2,test 2 desc,${LocalTime.now()}\n${LocalDateTime.now()}"){
+    val filename = "test_database.txt"
+    val fos : FileOutputStream = LocalContext.current.openFileOutput(filename, Context.MODE_PRIVATE)
+    fos.write(database.toByteArray())
+    fos.flush()
+    fos.close()
+}
+
+@Composable
+fun FileLoad(){
+    val filename = "test_database.txt"
+    val fin: FileInputStream = LocalContext.current.openFileInput(filename)
+    var a: Int
+    val temp = StringBuilder()
+    while (fin.read().also { a = it } != -1) {
+        temp.append(a.toChar())
+    }
+}
+
 @Composable
 fun MissionAdd(name: String = "NAME", description: String = "This is a description", @SuppressLint("ModifierParameter") modifier: Modifier = Modifier) {
     Card(modifier = modifier, shape = RectangleShape, border = BorderStroke(2.dp, BorderColor), colors = CardColors(FillColor, FillColor, FillColor, FillColor)) {
         Text(
-            text = name,
+            text = name.uppercase(),
             modifier = modifier,
             style = Typography.bodyLarge,
             fontSize = 30.sp
